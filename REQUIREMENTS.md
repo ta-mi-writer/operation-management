@@ -48,3 +48,6 @@ uv run --env-file .env main.py --origin "https://maps.app.goo.gl/xxx" --destinat
 
 ## 8. URL形式
 - 入力URL: `https://maps.app.goo.gl/xxx` 形式のGoogleマップ短縮URL
+  - Test用のURL
+    - https://maps.app.goo.gl/Xv7HJ7VMuvfH9sJb7
+    - https://maps.app.goo.gl/B5wNp4oSPoETvZ7b6

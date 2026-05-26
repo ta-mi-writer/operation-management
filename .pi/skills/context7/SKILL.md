@@ -7,15 +7,8 @@ description: Context7 APIを使用してライブラリのドキュメントコ�
 
 Context7 APIを使用して、ライブラリのドキュメントコンテキストを検索・取得します。
 
-## Setup
+Context7のAPIキーは、.envファイルに格納済み。
 
-APIキーを `.env` ファイルに設定してください：
-
-```bash
-CONTEXT7_API_KEY=your_api_key_here
-```
-
-APIキーは [context7.com/dashboard](https://context7.com/dashboard) で取得できます。
 
 ## Usage
 
