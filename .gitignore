@@ -11,3 +11,18 @@ wheels/
 .venv
 
 .env
+
+.pi/prompts/opsx-apply.md
+.pi/prompts/opsx-archive.md
+.pi/prompts/opsx-continue.md
+.pi/prompts/opsx-explore.md
+.pi/prompts/opsx-new.md
+.pi/prompts/opsx-propose.md
+.pi/prompts/opsx-verify.md
+.pi/skills/openspec-apply-change
+.pi/skills/openspec-archive-change
+.pi/skills/openspec-continue-change
+.pi/skills/openspec-explore
+.pi/skills/openspec-new-change
+.pi/skills/openspec-propose
+.pi/skills/openspec-verify-change
