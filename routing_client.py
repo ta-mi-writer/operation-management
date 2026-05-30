@@ -146,21 +146,21 @@ def calculate_route(
   )
 
   # レスポンスから所要時間を取得
-  routes = response.routes  # pyright: ignore[reportAttributeAccessIssue]
+  routes = response.routes
   if not routes:
     error_msg = "ルートが見つかりませんでした"
     raise RuntimeError(error_msg)
 
   route = routes[0]
-  legs = route.legs  # pyright: ignore[reportAttributeAccessIssue]
+  legs = route.legs
   if not legs:
     error_msg = "ルート情報にlegsが含まれていません"
     raise RuntimeError(error_msg)
 
   leg = legs[0]
-  duration = leg.duration  # pyright: ignore[reportAttributeAccessIssue]
+  duration = leg.duration
 
-  return duration.seconds  # pyright: ignore[reportAttributeAccessIssue]
+  return duration.seconds
 
 
 def format_duration(seconds: int) -> str:
@@ -244,8 +244,8 @@ def main() -> None:
       raise ValueError(msg) from e
 
   # URLから座標または住名を取得
-  origin_url: str = args.origin  # pyright: ignore[reportAny]
-  dest_url: str = args.destination  # pyright: ignore[reportAny]
+  origin_url: str = args.origin
+  dest_url: str = args.destination
   origin_loc = get_coordinates_or_address(origin_url)
   dest_loc = get_coordinates_or_address(dest_url)
 
