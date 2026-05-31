@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "google-api-python-client>=2.197.0",
+    "google-auth>=2.53.0",
     "google-maps-routing>=0.10.0",
     "googlemaps>=4.10.0",
     "requests>=2.34.2",

@@ -26,3 +26,5 @@ wheels/
 .pi/skills/openspec-new-change
 .pi/skills/openspec-propose
 .pi/skills/openspec-verify-change
+
+service_account.json
