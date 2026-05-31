@@ -9,4 +9,4 @@
   - 基本的にはPythonの標準モジュールを使用する
 - コードが完成したら
   - Ruffのエラーを確認する
-  - Pythonファイルを実行するときは`uv run --env-file .env ファイル名`を使用する
+  - 環境変数を用いたPythonファイルを実行するときは`uv run --env-file .env ファイル名`を使用する
