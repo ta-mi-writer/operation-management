@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -56,6 +57,9 @@ def get_event(event_id: str) -> dict:
 
 
 if __name__ == "__main__":
-  event_id = "i35562gm06prm5kck6hp31jrqg"
-  event = get_event(event_id)
+  parser = argparse.ArgumentParser(description="Googleカレンダーからイベントを取得する")
+  parser.add_argument("event_id", help="取得するイベントのID")
+  args = parser.parse_args()
+
+  event = get_event(args.event_id)
   print(json.dumps(event, indent=2, ensure_ascii=False))
