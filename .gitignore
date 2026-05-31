@@ -28,3 +28,4 @@ wheels/
 .pi/skills/openspec-verify-change
 
 service_account.json
+token.json
