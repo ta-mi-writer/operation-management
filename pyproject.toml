@@ -9,7 +9,6 @@ dependencies = [
     "google-auth>=2.53.0",
     "google-maps-places>=0.8.0",
     "google-maps-routing>=0.10.0",
-    "googlemaps>=4.10.0",
     "requests>=2.34.2",
 ]
 
