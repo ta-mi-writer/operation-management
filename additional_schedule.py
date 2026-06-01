@@ -1,32 +1,16 @@
-"""Google Calendar API へのインターフェースモジュール (OAuth版)."""
+"""Google Calendar への配送スケジュール追加モジュール."""
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import quote as url_quote
-from urllib.parse import unquote
 
-import requests
 from google.auth import exceptions as auth_exceptions
 from google.auth.transport import requests as auth_requests
 from google.oauth2 import credentials
 from googleapiclient import discovery
-
-from routing_client import (
-  calculate_route,
-  extract_address_from_url,
-  extract_coordinates,
-  generate_maps_url,
-  get_coordinates_or_address,
-)
-
-# 固定事務所URL
-OFFICE_URL = "https://maps.app.goo.gl/yaCYELrM8ouRfLwa7"
 
 
 def get_calendar_service() -> discovery.Resource:
@@ -62,6 +46,20 @@ def get_calendar_service() -> discovery.Resource:
   if creds.expired and creds.refresh_token:
     try:
       creds.refresh(auth_requests.Request())
+      # リフレッシュ後のトークンを保存
+      token_path.write_text(
+        json.dumps(
+          {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": creds.scopes,
+          },
+          indent=2,
+        )
+      )
     except auth_exceptions.RefreshError as e:
       error_msg = f"トークンのリフレッシュに失敗しました: {e}"
       raise RuntimeError(error_msg) from e
@@ -73,87 +71,8 @@ def get_calendar_service() -> discovery.Resource:
   return discovery.build("calendar", "v3", credentials=creds)
 
 
-def get_destination_short_name(url: str) -> str:
-  """URLから簡略化された住所名を抽出する。
-
-  Args:
-    url: Google Maps短縮URL
-
-  Returns:
-    簡略化された住所名
-
-  Raises:
-    ValueError: URLから住名を抽出できない場合
-  """
-  response = requests.get(url, allow_redirects=True, timeout=10)
-  final_url = response.url
-
-  # 住名抽出
-  match = re.search(r"/maps/place/([^/?]+)", final_url)
-  if not match:
-    error_msg = f"URLから住名を抽出できませんでした: {final_url}"
-    raise ValueError(error_msg)
-
-  # URLデコードを適用
-  full_address = unquote(match.group(1))
-
-  # 札幌市住址判定
-  if "札幌市" in full_address:
-    sapporo_pattern = r"札幌市[^市区町村]*?[市区町村]?(.*?[条丁目番地]*)(.*)"
-    sapporo_match = re.search(sapporo_pattern, full_address)
-    if sapporo_match:
-      street_part = sapporo_match.group(1).strip()
-      building_part = sapporo_match.group(2).strip()
-      if building_part:
-        return f"{street_part} {building_part}"
-      return street_part
-
-  city_pattern = r"(?:北海道|.*?[都道府県])([^市区町村]*?[市区町村])"
-  city_match = re.search(city_pattern, full_address)
-  if city_match:
-    return city_match.group(1)
-
-  parts = full_address.split("、")
-  min_parts = 2
-  if len(parts) >= min_parts:
-    return parts[0]
-
-  return full_address[:20]
-
-
-def calculate_notify_minutes(purpose: str, duration_seconds: int | None = None) -> int:
-  """移動パターンに応じた通知時間を計算する。
-
-  Args:
-    purpose: 移動パターン（送り/現地周辺待機/事務所周辺待機）
-    duration_seconds: 所要時間（秒）。事務所周辺待機で使用。
-
-  Returns:
-    通知する分数（デフォルトは20、事務所周辺待機は走行時間+15）
-  """
-  if purpose == "事務所周辺待機" and duration_seconds is not None:
-    return (duration_seconds // 60) + 15
-
-  return 20
-
-
-def create_travel_event(
-  purpose: str,
-  destination_url: str,
-  start_time: datetime,
-  duration_seconds: int,
-  route_url: str,
-  extra_notify: int | None = None,
-) -> str:
-  """移動予定をGoogleカレンダーに登録する。
-
-  Args:
-    purpose: 移動パターン
-    destination_url: 到着地URL
-    start_time: 開始時刻
-    duration_seconds: 所要時間（秒）
-    route_url: ルートURL
-    extra_notify: 追加通知（分）。0=開始時刻通知、None=追加なし
+def create_delivery_schedule_event() -> str:
+  """配送スケジュールをGoogleカレンダーに登録する。
 
   Returns:
     登録されたイベントID
@@ -165,20 +84,18 @@ def create_travel_event(
     error_msg = "GOOGLE_CALENDAR_IDが設定されていません"
     raise ValueError(error_msg)
 
-  dest_name = get_destination_short_name(destination_url)
-  title = f"{purpose} {dest_name}"
+  # 当日の23:30を開始時刻とする
+  jst = timezone(timedelta(hours=9))
+  start_time = datetime.combine(
+    datetime.now(jst).date(), datetime.strptime("23:30", "%H:%M").time(), tzinfo=jst
+  )
 
-  end_time = start_time + timedelta(seconds=duration_seconds)
-
-  notify_minutes = calculate_notify_minutes(purpose, duration_seconds)
-  reminders = [{"method": "popup", "minutes": notify_minutes}]
-
-  if extra_notify is not None:
-    reminders.append({"method": "popup", "minutes": extra_notify})
+  # 終了時刻は1時間後
+  end_time = start_time + timedelta(hours=1)
 
   event = {
-    "summary": title,
-    "description": route_url,
+    "summary": "配送スケジュール",
+    "description": "ここにルートのURLが入ります",
     "start": {
       "dateTime": start_time.isoformat(),
       "timeZone": "Asia/Tokyo",
@@ -189,7 +106,7 @@ def create_travel_event(
     },
     "reminders": {
       "useDefault": False,
-      "overrides": reminders,
+      "overrides": [{"method": "popup", "minutes": 20}],
     },
   }
 
@@ -197,104 +114,10 @@ def create_travel_event(
   return created.get("id", "")
 
 
-def parse_args() -> argparse.Namespace:
-  """コマンドライン引数を解析する。
-
-  Returns:
-    解析結果
-  """
-  parser = argparse.ArgumentParser(description="Google Calendar 移動予定登録")
-
-  _ = parser.add_argument(
-    "--purpose",
-    required=True,
-    choices=["送り", "現地周辺待機", "事務所周辺待機"],
-    help="移動パターン",
-  )
-
-  _ = parser.add_argument(
-    "--destination",
-    required=True,
-    help="到着地URL(現地周辺待機の場合は出発地)",
-  )
-
-  _ = parser.add_argument(
-    "--start-time",
-    required=True,
-    help='開始時刻 "HH:MM" 形式',
-  )
-
-  _ = parser.add_argument(
-    "--notify",
-    type=int,
-    default=None,
-    help="追加通知(分)。0=開始時刻通知",
-  )
-
-  return parser.parse_args()
-
-
 def main() -> None:
-  """メイン処理を実行する。"""
-  args = parse_args()
-
-  jst = timezone(timedelta(hours=9))
-
-  time_obj = datetime.strptime(args.start_time, "%H:%M").time()
-  start_time = datetime.combine(datetime.now(jst).date(), time_obj, tzinfo=jst)
-
-  if args.purpose == "事務所周辺待機":
-    dest_loc = get_coordinates_or_address(args.destination)
-    office_loc = get_coordinates_or_address(OFFICE_URL)
-    duration_seconds = calculate_route(office_loc, dest_loc, None)
-    adjusted_minutes = (duration_seconds // 60) + 15
-    start_time = start_time - timedelta(minutes=adjusted_minutes)
-    origin_url = OFFICE_URL
-    destination_url = args.destination
-  elif args.purpose == "現地周辺待機":
-    origin_url = args.destination
-    destination_url = OFFICE_URL
-    origin_loc = get_coordinates_or_address(origin_url)
-    dest_loc = get_coordinates_or_address(destination_url)
-    duration_seconds = calculate_route(origin_loc, dest_loc, None)
-  else:
-    origin_url = OFFICE_URL
-    destination_url = args.destination
-    origin_loc = get_coordinates_or_address(origin_url)
-    dest_loc = get_coordinates_or_address(destination_url)
-    duration_seconds = calculate_route(origin_loc, dest_loc, None)
-
-  origin_resp = requests.get(origin_url, allow_redirects=True, timeout=10)
-  dest_resp = requests.get(destination_url, allow_redirects=True, timeout=10)
-
-  origin_coords = extract_coordinates(origin_resp.url)
-  dest_coords = extract_coordinates(dest_resp.url)
-
-  if origin_coords and dest_coords:
-    route_url = generate_maps_url(
-      origin_coords[0], origin_coords[1], dest_coords[0], dest_coords[1]
-    )
-  else:
-    origin_addr = extract_address_from_url(origin_resp.url)
-    dest_addr = extract_address_from_url(dest_resp.url)
-    if origin_addr and dest_addr:
-      route_url = (
-        f"https://www.google.com/maps/dir/?api=1&origin={url_quote(origin_addr)}"
-        f"&destination={url_quote(dest_addr)}&travelmode=driving"
-      )
-    else:
-      route_url = "ルートURLを生成できませんでした"
-
-  event_id = create_travel_event(
-    purpose=args.purpose,
-    destination_url=destination_url,
-    start_time=start_time,
-    duration_seconds=duration_seconds,
-    route_url=route_url,
-    extra_notify=args.notify,
-  )
-
-  print(f"イベント登録完了: {event_id}")
+  """メイン処理を実行する."""
+  event_id = create_delivery_schedule_event()
+  print(f"配送スケジュールを追加しました: {event_id}")
 
 
 if __name__ == "__main__":
