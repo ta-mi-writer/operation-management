@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import os
 import re
+from dataclasses import dataclass
+from typing import Any
 from urllib.parse import unquote
 
 import requests
@@ -13,6 +15,27 @@ import requests
 from google.api_core.exceptions import GoogleAPIError
 from google.maps import places_v1
 from google.maps.places_v1.types import SearchTextRequest
+
+
+@dataclass
+class PlaceResult:
+  """検索結果を表すデータクラス."""
+
+  place_id: str | None = None
+  name: str | None = None
+  address: str | None = None
+  latitude: float | None = None
+  longitude: float | None = None
+  types: list[str] | None = None  # type: ignore[assignment]
+
+
+@dataclass
+class RedirectResult:
+  """リダイレクト結果を表すデータクラス."""
+
+  final_url: str | None = None
+  place_name: str | None = None
+  redirect_history: list[dict[str, Any]] | None = None
 
 
 def get_redirected_url(
@@ -26,6 +49,7 @@ def get_redirected_url(
 
   final_url: str | None = None
   place_name: str | None = None
+  redirect_history: list[dict[str, Any]] = []
 
   try:
     response = requests.get(
@@ -36,6 +60,7 @@ def get_redirected_url(
     print("リダイレクト履歴:")
     for i, resp in enumerate(response.history):
       print(f"  {i + 1}. {resp.url} -> {resp.status_code}")
+      redirect_history.append({"url": resp.url, "status_code": resp.status_code})
 
     print(f"\n最終的なURL: {final_url}")
 
@@ -53,23 +78,33 @@ def get_redirected_url(
   return final_url, place_name
 
 
-def search_with_text_query(place_name: str, api_key: str | None = None) -> None:
-  """Google Places API の Text Query を使用して場所を検索する."""
-  # APIキーの確認
+def get_redirected_url_v2(short_url: str) -> RedirectResult:
+  """リダイレクト結果を構造化して返す関数（ライブラリ向け）."""
+  final_url, place_name = get_redirected_url(short_url)
+  return RedirectResult(
+    final_url=final_url,
+    place_name=place_name,
+    redirect_history=None,  # 後方互換性のため
+  )
+
+
+def get_api_key(api_key: str | None = None) -> str | None:
+  """Get Google Maps API key from parameter or environment variable."""
   if api_key is None:
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+  return api_key
+
+
+def search_with_text_query_v2(
+  place_name: str, api_key: str | None = None
+) -> list[PlaceResult]:
+  """Google Places API の Text Query を使用して場所を検索する（ライブラリ向け）."""
+  api_key = get_api_key(api_key)
 
   if not api_key:
-    print("警告: Google Maps API キーが必要です")
-    print(
-      "環境変数 GOOGLE_MAPS_API_KEY を設定するか、api_key パラメータを渡してください"
-    )
-    return
+    return []
 
-  # クライアント初期化
   client = places_v1.PlacesClient(client_options={"api_key": api_key})
-
-  # 検索リクエスト作成
   request = SearchTextRequest(
     text_query=place_name,
     language_code="ja",
@@ -77,7 +112,7 @@ def search_with_text_query(place_name: str, api_key: str | None = None) -> None:
     max_result_count=5,
   )
 
-  # 検索実行
+  results: list[PlaceResult] = []
   try:
     response = client.search_text(
       request,
@@ -90,45 +125,101 @@ def search_with_text_query(place_name: str, api_key: str | None = None) -> None:
       ],
     )
 
-    print(f"\nテキストクエリ検索結果: '{place_name}'")
     if response.places:
-      for i, place in enumerate(response.places, 1):
-        print(f"\n  結果 {i}:")
-        if place.id:
-          print(f"    Place ID: {place.id}")
-        if place.display_name:
-          # DisplayInfoオブジェクトの text 属性を使用
-          display_text = (
+      for place in response.places:
+        result = PlaceResult(
+          place_id=place.id,
+          name=(
             place.display_name.text
-            if hasattr(place.display_name, "text")
+            if place.display_name and hasattr(place.display_name, "text")
             else str(place.display_name)
-          )
-          print(f"    名前: {display_text}")
-        if place.formatted_address:
-          print(f"    住所: {place.formatted_address}")
-        if place.location:
-          print(f"    座標: {place.location.latitude}, {place.location.longitude}")
-        if place.types:
-          print(f"    タイプ: {', '.join(place.types)}")
+            if place.display_name
+            else None
+          ),
+          address=place.formatted_address,
+          latitude=place.location.latitude if place.location else None,
+          longitude=place.location.longitude if place.location else None,
+          types=list(place.types) if place.types else None,  # type: ignore[assignment]
+        )
+        results.append(result)
 
   except GoogleAPIError as e:
     print(f"Google API エラー: {e}")
 
+  return results
 
-if __name__ == "__main__":
+
+def search_with_text_query(place_name: str, api_key: str | None = None) -> None:
+  """Google Places API の Text Query を使用して場所を検索する."""
+  results = search_with_text_query_v2(place_name, api_key)
+
+  if not results:
+    print("警告: Google Maps API キーが必要です")
+    print(
+      "環境変数 GOOGLE_MAPS_API_KEY を設定するか、api_key パラメータを渡してください"
+    )
+    return
+
+  print(f"\nテキストクエリ検索結果: '{place_name}'")
+  for i, result in enumerate(results, 1):
+    print(f"\n  結果 {i}:")
+    print(f"    Place ID: {result.place_id}")
+    print(f"    名前: {result.name}")
+    print(f"    住所: {result.address}")
+    if result.latitude and result.longitude:
+      print(f"    座標: {result.latitude}, {result.longitude}")
+    if result.types:
+      print(f"    タイプ: {', '.join(result.types)}")
+
+
+def process_maps_url(
+  short_url: str, api_key: str | None = None
+) -> tuple[RedirectResult, list[PlaceResult]]:
+  """Google Maps short URLを処理し、リダイレクト結果と場所情報を返す.
+
+  両方の機能を統合したライブラリ向け関数.
+
+  Args:
+      short_url: Google Maps short URL
+      api_key: Google Maps API key (環境変数からも取得可能)
+
+  Returns:
+      tuple: (RedirectResult, list[PlaceResult])
+  """
+  redirect_result = get_redirected_url_v2(short_url)
+
+  if redirect_result.place_name:
+    place_results = search_with_text_query_v2(redirect_result.place_name, api_key)
+  else:
+    place_results = []
+
+  return redirect_result, place_results
+
+
+def main() -> None:
+  """CLIエントリーポイント."""
   parser = argparse.ArgumentParser(
     description="Google Maps short URLをリダイレクトしてPlace IDを取得します"
   )
   parser.add_argument(
-    "short_url", help="Google Maps short URL (example: https://maps.app.goo.gl/LDfR17Zs6yvuQDyr8)"
+    "short_url",
+    help="Google Maps short URL (example: https://maps.app.goo.gl/LDfR17Zs6yvuQDyr8)",
+  )
+  parser.add_argument(
+    "--api-key",
+    help="Google Maps API key (デフォルト: 環境変数 GOOGLE_MAPS_API_KEY)",
   )
   args = parser.parse_args()
 
-  result, place_name = get_redirected_url(args.short_url)
+  final_url, place_name = get_redirected_url(args.short_url)
 
-  if result:
-    print(f"\n取得成功: {result}")
+  if final_url:
+    print(f"\n取得成功: {final_url}")
 
   # Place API でのテキストクエリ検索（APIキーが必要）
   if place_name:
-    search_with_text_query(place_name)
+    search_with_text_query(place_name, args.api_key)
+
+
+if __name__ == "__main__":
+  main()
