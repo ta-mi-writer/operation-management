@@ -14,8 +14,14 @@ from google.maps.routing_v2.types import (
 )
 
 
-def get_route_info() -> routing_v2.ComputeRoutesResponse:
+def get_route_info(
+  origin_place_id: str, dest_place_id: str
+) -> routing_v2.ComputeRoutesResponse:
   """出発地から目的地までのルート情報を取得する.
+
+  Args:
+      origin_place_id: 出発地のPlace ID
+      dest_place_id: 目的地のPlace ID
 
   Returns:
       ComputeRoutesResponse: ルート情報のレスポンス
@@ -25,8 +31,8 @@ def get_route_info() -> routing_v2.ComputeRoutesResponse:
   client = routing_v2.RoutesClient(client_options={"api_key": api_key})
 
   # Place IDをWaypointに変換
-  origin_wp = Waypoint(place_id="ChIJSQeomLIpC18RFOdXaFoeZig")
-  dest_wp = Waypoint(place_id="ChIJT2FKyUMrC18RbsBcsnO5URo")
+  origin_wp = Waypoint(place_id=origin_place_id)
+  dest_wp = Waypoint(place_id=dest_place_id)
 
   # ComputeRoutesRequestでリクエスト構築
   # 注: FUEL_EFFICIENTは日本国内未サポートのため、TRAFFIC_AWARE_OPTIMALを使用
@@ -60,7 +66,10 @@ def main() -> None:
     return
 
   # ルート情報取得
-  response = get_route_info()
+  response = get_route_info(
+    origin_place_id="ChIJSQeomLIpC18RFOdXaFoeZig",
+    dest_place_id="ChIJdxpz46kgdV8RLSX3Ilrf6no",
+  )
 
   # 結果出力
   routes = response.routes
@@ -76,9 +85,9 @@ def main() -> None:
     route = eco_route or routes[0]
 
     # 総距離・時間
-    distance = route.distance_meters
+    distance = route.distance_meters / 1000
     duration = route.duration
-    print(f"ルート距離: {distance}メートル")
+    print(f"ルート距離: {distance}キロメートル")
     print(f"所要時間: {duration}")
 
     # ルート手順
@@ -90,7 +99,7 @@ def main() -> None:
           instruction = nav_instruction.instructions if nav_instruction else ""
           clean_instruction = re.sub(r"<[^>]+>", "", instruction)
           print(f"  ステップ {step_idx + 1}: {clean_instruction}")
-          print(f"    距離: {step.distance_meters}メートル")
+          print(f"    距離: {step.distance_meters / 1000}キロメートル")
   else:
     print("ルートが見つかりませんでした")
 
