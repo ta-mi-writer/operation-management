@@ -6,14 +6,11 @@ import argparse
 from typing import Literal
 
 from get_place_id import process_maps_url
+from get_route_info import get_route_info
 
 # 事務所情報
 OFFICE_PLACE_NAME = "すすきのプラザビル"
 OFFICE_PLACE_ID = "ChIJSQeomLIpC18RFOdXaFoeZig"
-
-# 出発地（千歳ステーションホテル）
-ORIGIN_PLACE_NAME = "千歳ステーションホテル"
-ORIGIN_PLACE_ID = "ChIJdxpz46kgdV8RLSX3Ilrf6no"
 
 
 def generate_route_url(
@@ -50,6 +47,20 @@ def generate_route_url(
     f"&destination={dest_name_val}"
     f"&destination_place_id={dest_place_id_val}"
   )
+
+
+def get_origin_dest_for_route(
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  office_place_id: str,
+  dest_place_id: str,
+) -> tuple[str, str]:
+  """指定された目的に応じた出発地と目的地のPlace IDを返す."""
+  if purpose == "送り":
+    return office_place_id, dest_place_id
+  if purpose == "現地周辺待機":
+    return dest_place_id, office_place_id
+  # 事務所周辺待機
+  return office_place_id, dest_place_id
 
 
 def main() -> None:
@@ -97,6 +108,22 @@ def main() -> None:
           dest_name=result.name,
         )
         print(f"\n  ルートURL: {route_url}")
+
+        # ルート情報取得
+        origin_place_id, dest_place_id_val = get_origin_dest_for_route(
+          args.purpose, OFFICE_PLACE_ID, result.place_id
+        )
+        route_response = get_route_info(origin_place_id, dest_place_id_val)
+
+        # ルート情報表示
+        routes = route_response.routes
+        if routes:
+          route = routes[0]
+          distance_km = route.distance_meters / 1000
+          print(f"\n  ルート距離: {distance_km:.2f}キロメートル")
+          print(f"  所要時間: {route.duration}")
+        else:
+          print("\n  ルート情報が取得できませんでした")
   else:
     print("\n場所情報が見つかりませんでした")
 
