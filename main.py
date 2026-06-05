@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import re
 from typing import Literal
 
+from additional_schedule import create_delivery_schedule_event
 from get_place_id import process_maps_url
 from get_route_info import get_route_info
 
@@ -49,6 +51,31 @@ def generate_route_url(
   )
 
 
+def calculate_notify_minutes(
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  duration_minutes: int,
+  distance_km: float,
+) -> list[int]:
+  """purposeと距離に応じたリマインダー分数リストを返す。
+
+  Args:
+    purpose: 移動パターン
+    duration_minutes: 所要時間（分）
+    distance_km: 距離（キロメートル）
+
+  Returns:
+    リマインダー分数のリスト
+  """
+  distance_threshold_km = 3.0
+  buffer_short = 15
+  buffer_long = 20
+
+  if purpose == "事務所周辺待機":
+    buffer = buffer_short if distance_km <= distance_threshold_km else buffer_long
+    return [duration_minutes + buffer]
+  return [20]
+
+
 def get_origin_dest_for_route(
   purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
   office_place_id: str,
@@ -78,6 +105,11 @@ def main() -> None:
     required=True,
     choices=["送り", "現地周辺待機", "事務所周辺待機"],
     help="行動目的を指定してください",
+  )
+  parser.add_argument(
+    "--start-time",
+    required=True,
+    help='開始時刻 "HH:MM" 形式 (例: 09:30)',
   )
   args = parser.parse_args()
 
@@ -122,6 +154,45 @@ def main() -> None:
           distance_km = route.distance_meters / 1000
           print(f"\n  ルート距離: {distance_km:.2f}キロメートル")
           print(f"  所要時間: {route.duration}")
+
+          # 所要時間から分数を抽出
+          time_parts_hours = 3
+          time_parts_minutes = 2
+          duration_str = str(route.duration)
+          # HH:MM:SS 形式の場合、最初の数値だけでなく総分数を計算
+          time_parts = duration_str.split(":")
+          if len(time_parts) == time_parts_hours:
+            # HH:MM:SS 形式
+            duration_minutes = int(time_parts[0]) * 60 + int(time_parts[1])
+          elif len(time_parts) == time_parts_minutes:
+            # MM:SS 形式
+            duration_minutes = int(time_parts[0])
+          else:
+            # その他の形式（例: "30 分"）
+            duration_match = re.search(r"(\d+)", duration_str)
+            duration_minutes = int(duration_match.group(1)) if duration_match else 0
+
+          # リマインダー分数計算
+          reminder_minutes = calculate_notify_minutes(
+            args.purpose, duration_minutes, distance_km
+          )
+
+          # カレンダー登録
+          try:
+            event_id = create_delivery_schedule_event(
+              summary=result.name,
+              description=(
+                f"配送: 事務所 → {result.name}\n"
+                f"{route_url}\n"
+                f"所要時間: {route.duration}\n"
+                f"距離: {distance_km:.1f} キロメートル"
+              ),
+              start_time_str=args.start_time,
+              reminder_minutes=reminder_minutes,
+            )
+            print(f"\n  カレンダー登録完了: {event_id}")
+          except (ValueError, RuntimeError) as e:
+            print(f"\n  カレンダー登録失敗: {e}")
         else:
           print("\n  ルート情報が取得できませんでした")
   else:
