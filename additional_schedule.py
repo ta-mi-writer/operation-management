@@ -71,8 +71,19 @@ def get_calendar_service() -> discovery.Resource:
   return discovery.build("calendar", "v3", credentials=creds)
 
 
-def create_delivery_schedule_event() -> str:
+def create_delivery_schedule_event(
+  summary: str,
+  description: str,
+  start_time_str: str,
+  reminder_minutes: list[int],
+) -> str:
   """配送スケジュールをGoogleカレンダーに登録する。
+
+  Args:
+    summary: イベントのタイトル
+    description: イベントの説明
+    start_time_str: 開始時刻（"HH:MM"形式の文字列）
+    reminder_minutes: リマインダーのminutes値のリスト
 
   Returns:
     登録されたイベントID
@@ -84,18 +95,23 @@ def create_delivery_schedule_event() -> str:
     error_msg = "GOOGLE_CALENDAR_IDが設定されていません"
     raise ValueError(error_msg)
 
-  # 当日の23:30を開始時刻とする
+  # 指定された時刻を開始時刻とする
   jst = timezone(timedelta(hours=9))
   start_time = datetime.combine(
-    datetime.now(jst).date(), datetime.strptime("23:30", "%H:%M").time(), tzinfo=jst
+    datetime.now(jst).date(),
+    datetime.strptime(start_time_str, "%H:%M").time(),
+    tzinfo=jst,
   )
 
   # 終了時刻は1時間後
   end_time = start_time + timedelta(hours=1)
 
+  # remindersの構築
+  overrides = [{"method": "popup", "minutes": minutes} for minutes in reminder_minutes]
+
   event = {
-    "summary": "配送スケジュール",
-    "description": "ここにルートのURLが入ります",
+    "summary": summary,
+    "description": description,
     "start": {
       "dateTime": start_time.isoformat(),
       "timeZone": "Asia/Tokyo",
@@ -106,7 +122,7 @@ def create_delivery_schedule_event() -> str:
     },
     "reminders": {
       "useDefault": False,
-      "overrides": [{"method": "popup", "minutes": 20}],
+      "overrides": overrides,
     },
   }
 
@@ -116,7 +132,12 @@ def create_delivery_schedule_event() -> str:
 
 def main() -> None:
   """メイン処理を実行する."""
-  event_id = create_delivery_schedule_event()
+  event_id = create_delivery_schedule_event(
+    summary="配送スケジュール",
+    description="ここにルートのURLが入ります",
+    start_time_str="23:30",
+    reminder_minutes=[20],
+  )
   print(f"配送スケジュールを追加しました: {event_id}")
 
 
