@@ -8,7 +8,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 from additional_schedule import create_delivery_schedule_event
-from get_place_id import PlaceResult, RedirectResult, process_maps_url
+from get_place_id import (
+  PlaceResult,
+  RedirectResult,
+  calculate_distance_meters,
+  get_redirected_url_v2,
+  search_with_text_query_v2,
+  select_nearest_place,
+)
 from get_route_info import get_route_info
 
 # 事務所情報
@@ -28,6 +35,7 @@ class CalendarEventParams:
   distance_km: float
   start_time_str: str
   reminder_minutes: list[int]
+  location: str | None = None
 
 
 def generate_route_url(
@@ -63,9 +71,9 @@ def generate_route_url(
 
   url = (
     f"https://www.google.com/maps/dir/?api=1"
-    f"&origin={origin_name}"
+    f"&origin={origin_name.replace(' ', '%20')}"
     f"&origin_place_id={origin_place_id}"
-    f"&destination={dest_name_val}"
+    f"&destination={dest_name_val.replace(' ', '%20')}"
     f"&destination_place_id={dest_place_id_val}"
   )
   return url, origin_name, dest_name_val
@@ -89,10 +97,15 @@ def calculate_notify_minutes(
   distance_threshold_km = 3.0
   buffer_short = 15
   buffer_long = 20
+  min_reminder_minutes = 20
 
   if purpose == "事務所周辺待機":
     buffer = buffer_short if distance_km <= distance_threshold_km else buffer_long
-    return [duration_minutes + buffer]
+    reminder_minutes = duration_minutes + buffer
+    # 距離が3km以下かつアラーム時間が20分未満の場合は20分に設定
+    if distance_km <= distance_threshold_km and reminder_minutes < min_reminder_minutes:
+      reminder_minutes = min_reminder_minutes
+    return [reminder_minutes]
   return [20]
 
 
@@ -151,6 +164,76 @@ def extract_duration_minutes(duration_str: str) -> int:
   return int(duration_match.group(1)) if duration_match else 0
 
 
+def get_distance_meters_from_redirect_result(
+  redirect_result: RedirectResult, result: PlaceResult
+) -> float | None:
+  """短縮URLの座標と検索候補の距離をメートル単位で返す.
+
+  Args:
+      redirect_result: リダイレクト結果
+      result: Places APIの検索結果
+
+  Returns:
+      距離（メートル）、座標が取れない場合はNone
+  """
+  if (
+    redirect_result.latitude is None
+    or redirect_result.longitude is None
+    or result.latitude is None
+    or result.longitude is None
+  ):
+    return None
+
+  return calculate_distance_meters(
+    redirect_result.latitude,
+    redirect_result.longitude,
+    result.latitude,
+    result.longitude,
+  )
+
+
+def print_place_result(
+  index: int,
+  redirect_result: RedirectResult,
+  result: PlaceResult,
+) -> None:
+  """検索候補の情報を表示する.
+
+  Args:
+      index: 表示番号
+      redirect_result: リダイレクト結果
+      result: Places APIの検索結果
+  """
+  print(f"\n  結果 {index}:")
+  if result.place_id:
+    print(f"    Place ID: {result.place_id}")
+  if result.name:
+    print(f"    名前: {result.name}")
+  if result.address:
+    print(f"    住所: {result.address}")
+
+  distance_meters = get_distance_meters_from_redirect_result(redirect_result, result)
+  if distance_meters is not None:
+    print(f"    基準地点からの距離: {distance_meters:.0f}m")
+  else:
+    print("    基準地点からの距離: 計算不可")
+
+
+def print_selected_place_result(result: PlaceResult) -> None:
+  """選択した候補の情報を表示する.
+
+  Args:
+      result: 選択されたPlaces APIの検索結果
+  """
+  print("\n選択した候補:")
+  if result.place_id:
+    print(f"  Place ID: {result.place_id}")
+  if result.name:
+    print(f"  名前: {result.name}")
+  if result.address:
+    print(f"  住所: {result.address}")
+
+
 def register_calendar_event(params: CalendarEventParams) -> None:
   """カレンダーイベントを登録する."""
   try:
@@ -164,6 +247,7 @@ def register_calendar_event(params: CalendarEventParams) -> None:
       ),
       start_time_str=params.start_time_str,
       reminder_minutes=params.reminder_minutes,
+      location=params.location,
     )
     print(f"\n  カレンダー登録完了: {event_id}")
   except (ValueError, RuntimeError) as e:
@@ -213,6 +297,7 @@ def process_single_place(
   reminder_minutes = calculate_notify_minutes(purpose, duration_minutes, distance_km)
 
   # カレンダー登録
+  location = result.address or result.name
   register_calendar_event(
     params=CalendarEventParams(
       summary=result.name,
@@ -223,6 +308,7 @@ def process_single_place(
       distance_km=distance_km,
       start_time_str=start_time_str,
       reminder_minutes=reminder_minutes,
+      location=location,
     )
   )
 
@@ -244,22 +330,30 @@ def process_place_results(
 
   print(f"\n検索結果: {len(place_results)}件")
   for i, result in enumerate(place_results, 1):
-    print(f"\n  結果 {i}:")
-    if result.place_id:
-      print(f"    Place ID: {result.place_id}")
-    if result.name:
-      print(f"    名前: {result.name}")
-    if result.address:
-      print(f"    住所: {result.address}")
+    print_place_result(i, redirect_result, result)
 
-    process_single_place(result, purpose, start_time_str)
+  selected_result = select_nearest_place(
+    place_results, redirect_result.latitude, redirect_result.longitude
+  )
+  if selected_result is None:
+    print("\n場所情報が見つかりませんでした")
+    return
+
+  print_selected_place_result(selected_result)
+  process_single_place(selected_result, purpose, start_time_str)
 
 
 def main() -> None:
   """CLIエントリーポイント."""
   args = parse_args()
 
-  redirect_result, place_results = process_maps_url(args.customer_site)
+  redirect_result = get_redirected_url_v2(args.customer_site)
+  place_results = (
+    search_with_text_query_v2(redirect_result.place_name)
+    if redirect_result.place_name
+    else []
+  )
+
   process_place_results(
     redirect_result,
     place_results,
