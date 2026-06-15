@@ -5,7 +5,7 @@ description: Parse unstructured Japanese dispatch instructions with Google Maps 
 
 # Map Dispatch Parser
 
-このスキルは、Google MapsのURLと、送迎に関する非定型の日本語指示書からパラメータを抽出し、`uv` を用いて環境変数を読み込んだ上で `main.py` を実行します。
+このスキルは、Google MapsのURLと、送迎に関する非定型の日本語指示書からパラメータを抽出し、`uv` を用いて環境変数を読み込んだ上で `/root/pi-workspace/operation-management/main.py` を実行します。
 
 ## パラメータ抽出・変換ルール
 
@@ -32,7 +32,7 @@ description: Parse unstructured Japanese dispatch instructions with Google Maps 
     - キーワード例: 「事務所周辺で待機」「事務所前で待ってて」「事務所バックでお願いします（事務所で待機する意味の場合）」
 *   **`現地周辺待機`**
     - 待機場所が事務所ではなく、目的地（現地）周辺である場合。
-    - キーワード例: 「（現地名）に向かってください」「（現地名）で乗せてください」「（現地名）OUT」
+    - キーワード例: 「（現地名）周辺で待機してください」
 
 ---
 
@@ -44,8 +44,7 @@ description: Parse unstructured Japanese dispatch instructions with Google Maps 
 **入力メッセージ:**
 ```text
 https://maps.app.goo.gl/wdv2BWZtNQNehvny8
-ひろみさん、事務所で降ろしたらリオに向かってください
-ななこさん、13時半 OUT。乗せて事務所バックでお願いします。
+13時半 現地周辺待機
 ```
 **解釈:**
 - **`customer-site`**: `https://maps.app.goo.gl/wdv2BWZtNQNehvny8`
@@ -54,7 +53,7 @@ https://maps.app.goo.gl/wdv2BWZtNQNehvny8
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env main.py --customer-site "https://maps.app.goo.gl/wdv2BWZtNQNehvny8" --purpose 現地周辺待機 --start-time 13:30
+uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/wdv2BWZtNQNehvny8" --purpose 現地周辺待機 --start-time 13:30
 ```
 
 ---
@@ -63,8 +62,7 @@ uv run --env-file .env main.py --customer-site "https://maps.app.goo.gl/wdv2BWZt
 **入力メッセージ:**
 ```text
 https://maps.app.goo.gl/abc123XYZ
-12시에事務所からななこさんを乗せて、リオまで送ってください。
-到着したらそのまま終了で大丈夫です。
+12時発、事務所からななこさんを乗せて、リオまで送ってください。
 ```
 **解釈:**
 - **`customer-site`**: `https://maps.app.goo.gl/abc123XYZ`
@@ -73,7 +71,7 @@ https://maps.app.goo.gl/abc123XYZ
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env main.py --customer-site "https://maps.app.goo.gl/abc123XYZ" --purpose 送り --start-time 12:00
+uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/abc123XYZ" --purpose 送り --start-time 12:00
 ```
 
 ---
@@ -91,7 +89,7 @@ https://maps.app.goo.gl/def456UVW
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env main.py --customer-site "https://maps.app.goo.gl/def456UVW" --purpose 事務所周辺待機 --start-time 15:00
+uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/def456UVW" --purpose 事務所周辺待機 --start-time 15:00
 ```
 
 ---
@@ -101,7 +99,13 @@ uv run --env-file .env main.py --customer-site "https://maps.app.goo.gl/def456UV
 上記のルールに従ってパラメータを正確に抽出したあと、`.env` ファイルの環境変数を適用した状態で以下の形式で実行してください。
 
 ```bash
-uv run --env-file .env main.py --customer-site "<customer-site>" --purpose "<purpose>" --start-time "<start-time>"
+uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "<customer-site>" --purpose "<purpose>" --start-time "<start-time>"
+```
+
+**重要**: コマンド実行後、必ず得られる **イベントID（event-id）** を `event_id` として出力してください。出力例：
+
+```
+event_id: mr01lqlbsog9n06b5du2g8vnqo
 ```
 
 ___
