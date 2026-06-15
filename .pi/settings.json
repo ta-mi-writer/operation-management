@@ -1,0 +1,5 @@
+{
+  "defaultProvider": "openrouter",
+  "defaultModel": "poolside/laguna-xs.2:free",
+  "defaultThinkingLevel": "off"
+}
