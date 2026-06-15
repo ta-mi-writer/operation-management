@@ -12,6 +12,14 @@ from google.auth.transport import requests as auth_requests
 from google.oauth2 import credentials
 from googleapiclient import discovery
 
+# Load .env file
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+  for line in _env_path.read_text().splitlines():
+    if "=" in line and not line.startswith("#"):
+      key, _, value = line.partition("=")
+      os.environ.setdefault(key, value)
+
 
 def get_calendar_service() -> discovery.Resource:
   """Google Calendar APIサービスを取得する。
@@ -76,6 +84,7 @@ def create_delivery_schedule_event(
   description: str,
   start_time_str: str,
   reminder_minutes: list[int],
+  location: str | None = None,
 ) -> str:
   """配送スケジュールをGoogleカレンダーに登録する。
 
@@ -84,6 +93,7 @@ def create_delivery_schedule_event(
     description: イベントの説明
     start_time_str: 開始時刻（"HH:MM"形式の文字列）
     reminder_minutes: リマインダーのminutes値のリスト
+    location: イベントの場所
 
   Returns:
     登録されたイベントID
@@ -125,6 +135,8 @@ def create_delivery_schedule_event(
       "overrides": overrides,
     },
   }
+  if location:
+    event["location"] = location
 
   created = service.events().insert(calendarId=calendar_id, body=event).execute()
   return created.get("id", "")
