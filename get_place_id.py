@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import re
 from dataclasses import dataclass
@@ -35,7 +36,101 @@ class RedirectResult:
 
   final_url: str | None = None
   place_name: str | None = None
+  latitude: float | None = None
+  longitude: float | None = None
   redirect_history: list[dict[str, Any]] | None = None
+
+
+def extract_maps_url_info(url: str) -> tuple[str | None, float | None, float | None]:
+  """Google Maps URLから場所名と座標を抽出する.
+
+  Args:
+      url: Google MapsのURL文字列
+
+  Returns:
+      (place_name, latitude, longitude)のタプル
+  """
+  decoded_url = unquote(url)
+
+  place_match = re.search(r"place/([^/]+)/@", decoded_url)
+  place_name = place_match.group(1).replace("+", " ") if place_match else None
+
+  coordinate_match = re.search(r"@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)", decoded_url)
+  if not coordinate_match:
+    return place_name, None, None
+
+  latitude = float(coordinate_match.group(1))
+  longitude = float(coordinate_match.group(2))
+  return place_name, latitude, longitude
+
+
+def calculate_distance_meters(
+  latitude1: float,
+  longitude1: float,
+  latitude2: float,
+  longitude2: float,
+) -> float:
+  """Haversine distanceを使用して2地点間の距離をメートル単位で返す.
+
+  Args:
+      latitude1: 1地点目の緯度
+      longitude1: 1地点目の経度
+      latitude2: 2地点目の緯度
+      longitude2: 2地点目の経度
+
+  Returns:
+      2地点間の距離（メートル）
+  """
+  earth_radius_meters = 6371000
+  phi1 = math.radians(latitude1)
+  phi2 = math.radians(latitude2)
+  delta_phi = math.radians(latitude2 - latitude1)
+  delta_lambda = math.radians(longitude2 - longitude1)
+
+  a = (
+    math.sin(delta_phi / 2) ** 2
+    + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+  )
+  c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+  return earth_radius_meters * c
+
+
+def select_nearest_place(
+  place_results: list[PlaceResult],
+  latitude: float | None,
+  longitude: float | None,
+) -> PlaceResult | None:
+  """座標に最も近い場所を検索結果から1件選択する.
+
+  Args:
+      place_results: Places APIの検索結果
+      latitude: 基準地点の緯度
+      longitude: 基準地点の経度
+
+  Returns:
+      最も近い場所、またはNone
+  """
+  if not place_results:
+    return None
+
+  if latitude is None or longitude is None:
+    print("警告: URLから座標を抽出できませんでした。検索結果の1件目を使用します。")
+    return place_results[0]
+
+  candidates: list[tuple[float, PlaceResult]] = []
+  for result in place_results:
+    if result.latitude is None or result.longitude is None:
+      continue
+    distance_meters = calculate_distance_meters(
+      latitude, longitude, result.latitude, result.longitude
+    )
+    candidates.append((distance_meters, result))
+
+  if not candidates:
+    print("警告: 検索候補の座標が取得できませんでした。検索結果の1件目を使用します。")
+    return place_results[0]
+
+  return min(candidates, key=lambda item: item[0])[1]
 
 
 def get_redirected_url(
@@ -67,10 +162,11 @@ def get_redirected_url(
     decoded_url = unquote(final_url)
     print(f"\nデコード後のURL: {decoded_url}")
 
-    place_match = re.search(r"place/([^/]+)/@", decoded_url)
-    if place_match:
-      place_name = place_match.group(1).replace("+", " ")
+    place_name, latitude, longitude = extract_maps_url_info(decoded_url)
+    if place_name:
       print(f"\n抽出した場所名: {place_name}")
+    if latitude is not None and longitude is not None:
+      print(f"抽出した座標: {latitude}, {longitude}")
 
   except requests.exceptions.RequestException as e:
     print(f"エラーが発生しました: {e}")
@@ -81,9 +177,15 @@ def get_redirected_url(
 def get_redirected_url_v2(short_url: str) -> RedirectResult:
   """リダイレクト結果を構造化して返す関数（ライブラリ向け）."""
   final_url, place_name = get_redirected_url(short_url)
+  latitude = None
+  longitude = None
+  if final_url:
+    place_name, latitude, longitude = extract_maps_url_info(final_url)
   return RedirectResult(
     final_url=final_url,
     place_name=place_name,
+    latitude=latitude,
+    longitude=longitude,
     redirect_history=None,  # 後方互換性のため
   )
 
