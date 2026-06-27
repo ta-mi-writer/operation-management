@@ -53,7 +53,7 @@ https://maps.app.goo.gl/wdv2BWZtNQNehvny8
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/wdv2BWZtNQNehvny8" --purpose 現地周辺待機 --start-time 13:30
+uv run --env-file /root/pi-workspace/operation-management/.env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/wdv2BWZtNQNehvny8" --purpose 現地周辺待機 --start-time 13:30
 ```
 
 ---
@@ -71,7 +71,7 @@ https://maps.app.goo.gl/abc123XYZ
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/abc123XYZ" --purpose 送り --start-time 12:00
+uv run --env-file /root/pi-workspace/operation-management/.env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/abc123XYZ" --purpose 送り --start-time 12:00
 ```
 
 ---
@@ -89,7 +89,7 @@ https://maps.app.goo.gl/def456UVW
 
 **実行コマンド:**
 ```bash
-uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/def456UVW" --purpose 事務所周辺待機 --start-time 15:00
+uv run --env-file /root/pi-workspace/operation-management/.env /root/pi-workspace/operation-management/main.py --customer-site "https://maps.app.goo.gl/def456UVW" --purpose 事務所周辺待機 --start-time 15:00
 ```
 
 ---
@@ -99,7 +99,7 @@ uv run --env-file .env /root/pi-workspace/operation-management/main.py --custome
 上記のルールに従ってパラメータを正確に抽出したあと、`.env` ファイルの環境変数を適用した状態で以下の形式で実行してください。
 
 ```bash
-uv run --env-file .env /root/pi-workspace/operation-management/main.py --customer-site "<customer-site>" --purpose "<purpose>" --start-time "<start-time>"
+uv run --env-file /root/pi-workspace/operation-management/.env /root/pi-workspace/operation-management/main.py --customer-site "<customer-site>" --purpose "<purpose>" --start-time "<start-time>"
 ```
 
 **重要**: コマンド実行後、必ず得られる **イベントID（event-id）** を `event_id` として出力してください。出力例：
