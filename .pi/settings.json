@@ -1,5 +1,5 @@
 {
   "defaultProvider": "openrouter",
-  "defaultModel": "poolside/laguna-xs.2:free",
+  "defaultModel": "google/gemma-4-31b-it:free",
   "defaultThinkingLevel": "off"
 }
