@@ -21,6 +21,7 @@ from get_route_info import get_route_info
 # 事務所情報
 OFFICE_PLACE_NAME = "すすきのプラザビル"
 OFFICE_PLACE_ID = "ChIJSQeomLIpC18RFOdXaFoeZig"
+TEN_MINUTE_REMINDER_MINUTES = 10
 
 
 @dataclass
@@ -92,7 +93,7 @@ def calculate_notify_minutes(
     distance_km: 距離（キロメートル）
 
   Returns:
-    リマインダー分数のリスト
+    既存リマインダーに10分前のリマインダーを追加した分数のリスト
   """
   distance_threshold_km = 3.0
   buffer_short = 15
@@ -101,12 +102,21 @@ def calculate_notify_minutes(
 
   if purpose == "事務所周辺待機":
     buffer = buffer_short if distance_km <= distance_threshold_km else buffer_long
-    reminder_minutes = duration_minutes + buffer
+    base_reminder_minutes = duration_minutes + buffer
     # 距離が3km以下かつアラーム時間が20分未満の場合は20分に設定
-    if distance_km <= distance_threshold_km and reminder_minutes < min_reminder_minutes:
-      reminder_minutes = min_reminder_minutes
-    return [reminder_minutes]
-  return [20]
+    if (
+      distance_km <= distance_threshold_km
+      and base_reminder_minutes < min_reminder_minutes
+    ):
+      base_reminder_minutes = min_reminder_minutes
+    reminder_minutes = [base_reminder_minutes]
+  else:
+    reminder_minutes = [20]
+
+  if TEN_MINUTE_REMINDER_MINUTES not in reminder_minutes:
+    reminder_minutes.append(TEN_MINUTE_REMINDER_MINUTES)
+
+  return sorted(reminder_minutes)
 
 
 def get_origin_dest_for_route(
