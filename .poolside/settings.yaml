@@ -1,0 +1,9 @@
+paths:
+  allow:
+    - path: "**"
+      write: true
+
+tools:
+  shell:
+    allow:
+      - "uv run --env-file /home/ubuntu/workspace/operation-management/.env /home/ubuntu/workspace/operation-management/main.py *"
