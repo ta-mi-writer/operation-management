@@ -359,7 +359,11 @@ def main() -> None:
 
   redirect_result = get_redirected_url_v2(args.customer_site)
   place_results = (
-    search_with_text_query_v2(redirect_result.place_name)
+    search_with_text_query_v2(
+      redirect_result.place_name,
+      latitude=redirect_result.latitude,
+      longitude=redirect_result.longitude,
+    )
     if redirect_result.place_name
     else []
   )

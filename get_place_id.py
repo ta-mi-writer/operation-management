@@ -15,7 +15,8 @@ import requests
 # Google Places API用
 from google.api_core.exceptions import GoogleAPIError
 from google.maps import places_v1
-from google.maps.places_v1.types import SearchTextRequest
+from google.maps.places_v1.types import Circle, SearchTextRequest
+from google.type import latlng_pb2
 
 
 @dataclass
@@ -198,7 +199,10 @@ def get_api_key(api_key: str | None = None) -> str | None:
 
 
 def search_with_text_query_v2(
-  place_name: str, api_key: str | None = None
+  place_name: str,
+  api_key: str | None = None,
+  latitude: float | None = None,
+  longitude: float | None = None,
 ) -> list[PlaceResult]:
   """Google Places API の Text Query を使用して場所を検索する（ライブラリ向け）."""
   api_key = get_api_key(api_key)
@@ -207,12 +211,21 @@ def search_with_text_query_v2(
     return []
 
   client = places_v1.PlacesClient(client_options={"api_key": api_key})
-  request = SearchTextRequest(
-    text_query=place_name,
-    language_code="ja",
-    region_code="JP",
-    max_result_count=5,
-  )
+  request_kwargs: dict[str, Any] = {
+    "text_query": place_name,
+    "language_code": "ja",
+    "region_code": "JP",
+    "max_result_count": 5,
+  }
+  if latitude is not None and longitude is not None:
+    bias_radius_meters = 5000
+    request_kwargs["location_bias"] = SearchTextRequest.LocationBias(
+      circle=Circle(
+        center=latlng_pb2.LatLng(latitude=latitude, longitude=longitude),
+        radius=bias_radius_meters,
+      )
+    )
+  request = SearchTextRequest(**request_kwargs)
 
   results: list[PlaceResult] = []
   try:

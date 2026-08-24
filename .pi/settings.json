@@ -1,5 +1,29 @@
 {
   "defaultProvider": "openrouter",
-  "defaultModel": "google/gemma-4-31b-it:free",
-  "defaultThinkingLevel": "off"
+  "defaultModel": "google/gemini-3.5-flash-lite",
+  "defaultThinkingLevel": "minimal",
+  "extensions": [
+    "/home/ubuntu/.pi/agent/extensions/herdr-agent-state.ts",
+    "-/home/ubuntu/.pi/agent/extensions/herdr-agent-state.ts"
+  ],
+  "skills": [
+    "/home/ubuntu/.pi/agent/skills/herdr/SKILL.md",
+    "-/home/ubuntu/.pi/agent/skills/herdr/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-animation/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-animation/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-cli/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-cli/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-core/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-core/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-creative/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-creative/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-keyframes/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-keyframes/SKILL.md",
+    "/home/ubuntu/.agents/skills/hyperframes-registry/SKILL.md",
+    "-/home/ubuntu/.agents/skills/hyperframes-registry/SKILL.md",
+    "/home/ubuntu/.agents/skills/media-use/SKILL.md",
+    "-/home/ubuntu/.agents/skills/media-use/SKILL.md"
+  ]
 }
