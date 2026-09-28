@@ -307,10 +307,7 @@ def process_single_place(
   reminder_minutes = calculate_notify_minutes(purpose, duration_minutes, distance_km)
 
   # タイトル設定（送りはそのまま、待機系は「迎え」を冒頭に付与）
-  if purpose == "送り":
-    summary = result.name
-  else:
-    summary = f"迎え {result.name}"
+  summary = result.name if purpose == "送り" else f"迎え {result.name}"
 
   # カレンダー登録
   location = result.address or result.name
