@@ -306,11 +306,17 @@ def process_single_place(
   # リマインダー分数計算
   reminder_minutes = calculate_notify_minutes(purpose, duration_minutes, distance_km)
 
+  # タイトル設定（送りはそのまま、待機系は「迎え」を冒頭に付与）
+  if purpose == "送り":
+    summary = result.name
+  else:
+    summary = f"迎え {result.name}"
+
   # カレンダー登録
   location = result.address or result.name
   register_calendar_event(
     params=CalendarEventParams(
-      summary=result.name,
+      summary=summary,
       route_url=route_url,
       origin_name=origin_name,
       dest_name=dest_name,
