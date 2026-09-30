@@ -40,7 +40,7 @@ class CalendarEventParams:
 
 
 def generate_route_url(
-  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   office_place_id: str,
   office_name: str,
   dest_place_id: str,
@@ -63,8 +63,8 @@ def generate_route_url(
     origin_name = dest_name
     dest_place_id_val = office_place_id
     dest_name_val = office_name
-  else:  # 事務所周辺待機
-    # 事務所周辺待機: 事務所 -> 現地
+  else:  # 事務所周辺待機 または 中間待機
+    # 事務所周辺待機 / 中間待機: 事務所 -> 現地
     origin_place_id = office_place_id
     origin_name = office_name
     dest_place_id_val = dest_place_id
@@ -81,7 +81,7 @@ def generate_route_url(
 
 
 def calculate_notify_minutes(
-  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   duration_minutes: int,
   distance_km: float,
 ) -> list[int]:
@@ -100,7 +100,10 @@ def calculate_notify_minutes(
   buffer_long = 20
   min_reminder_minutes = 20
 
-  if purpose == "事務所周辺待機":
+  if purpose == "中間待機":
+    base_reminder_minutes = int(duration_minutes / 2) + 15
+    reminder_minutes = [base_reminder_minutes]
+  elif purpose == "事務所周辺待機":
     buffer = buffer_short if distance_km <= distance_threshold_km else buffer_long
     base_reminder_minutes = duration_minutes + buffer
     # 距離が3km以下かつアラーム時間が20分未満の場合は20分に設定
@@ -120,7 +123,7 @@ def calculate_notify_minutes(
 
 
 def get_origin_dest_for_route(
-  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   office_place_id: str,
   dest_place_id: str,
 ) -> tuple[str, str]:
@@ -129,7 +132,7 @@ def get_origin_dest_for_route(
     return office_place_id, dest_place_id
   if purpose == "現地周辺待機":
     return dest_place_id, office_place_id
-  # 事務所周辺待機
+  # 事務所周辺待機 または 中間待機
   return office_place_id, dest_place_id
 
 
@@ -146,7 +149,7 @@ def parse_args() -> argparse.Namespace:
   parser.add_argument(
     "--purpose",
     required=True,
-    choices=["送り", "現地周辺待機", "事務所周辺待機"],
+    choices=["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
     help="行動目的を指定してください",
   )
   parser.add_argument(
@@ -266,7 +269,7 @@ def register_calendar_event(params: CalendarEventParams) -> None:
 
 def process_single_place(
   result: PlaceResult,
-  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   start_time_str: str,
 ) -> None:
   """単一の場所結果を処理する（ルート生成・情報取得・カレンダー登録）."""
@@ -329,7 +332,7 @@ def process_single_place(
 def process_place_results(
   redirect_result: RedirectResult,
   place_results: list[PlaceResult],
-  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機"],
+  purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   start_time_str: str,
 ) -> None:
   """場所検索結果を処理する."""
