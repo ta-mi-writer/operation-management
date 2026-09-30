@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -80,6 +81,11 @@ def generate_route_url(
   return url, origin_name, dest_name_val
 
 
+def ceil_to_5_minutes(minutes: int) -> int:
+  """分数を5分単位で切り上げる."""
+  return math.ceil(minutes / 5) * 5
+
+
 def calculate_notify_minutes(
   purpose: Literal["送り", "現地周辺待機", "事務所周辺待機", "中間待機"],
   duration_minutes: int,
@@ -89,7 +95,7 @@ def calculate_notify_minutes(
 
   Args:
     purpose: 移動パターン
-    duration_minutes: 所要時間（分）
+    duration_minutes: 省要時間（分）
     distance_km: 距離（キロメートル）
 
   Returns:
@@ -101,11 +107,11 @@ def calculate_notify_minutes(
   min_reminder_minutes = 20
 
   if purpose == "中間待機":
-    base_reminder_minutes = int(duration_minutes / 2) + 15
+    base_reminder_minutes = ceil_to_5_minutes(int(duration_minutes / 2) + 15)
     reminder_minutes = [base_reminder_minutes]
   elif purpose == "事務所周辺待機":
     buffer = buffer_short if distance_km <= distance_threshold_km else buffer_long
-    base_reminder_minutes = duration_minutes + buffer
+    base_reminder_minutes = ceil_to_5_minutes(duration_minutes + buffer)
     # 距離が3km以下かつアラーム時間が20分未満の場合は20分に設定
     if (
       distance_km <= distance_threshold_km
